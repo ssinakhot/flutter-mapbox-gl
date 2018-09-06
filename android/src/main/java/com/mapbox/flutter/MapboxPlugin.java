@@ -7,12 +7,19 @@ import android.graphics.PointF;
 import android.graphics.SurfaceTexture;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
+
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.ProjectedMeters;
 import com.mapbox.mapboxsdk.maps.FlutterMap;
 import com.mapbox.mapboxsdk.maps.MapboxMapOptions;
+import com.mapbox.mapboxsdk.style.expressions.Expression;
+import com.mapbox.mapboxsdk.style.layers.PropertyValue;
+import com.mapbox.mapboxsdk.style.sources.GeoJsonOptions;
+import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
+
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
@@ -20,8 +27,47 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 import io.flutter.view.FlutterView;
 
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import static com.mapbox.mapboxsdk.style.expressions.Expression.all;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.division;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.get;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.gt;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.gte;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.has;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.heatmapDensity;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.interpolate;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.linear;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.literal;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.lt;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.rgb;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.rgba;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.stop;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.toNumber;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.zoom;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleColor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleRadius;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleStrokeColor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleStrokeWidth;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapColor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapIntensity;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapOpacity;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapRadius;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapWeight;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconColor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconSize;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.textAllowOverlap;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.textColor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.textField;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.textIgnorePlacement;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.textSize;
 
 /**
  * FlutterMapboxPlugin
@@ -392,6 +438,147 @@ public class MapboxPlugin implements MethodCallHandler {
         break;
       }
 
+      case "addMarker": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String title = stringParamOfCall(call, "title");
+          String snippet = stringParamOfCall(call, "snippet");
+          LatLng latLng = latLngParamOfCall(call);
+          mapInstance.map.addMarker(title, snippet, latLng);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addPolyline": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          LatLng[] points = parseLatLngs(call.argument("points"));
+          double width = doubleParamOfCall(call, "width");
+          String color = stringParamOfCall(call, "color");
+          mapInstance.map.addPolyline(points, width, color);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addPolygon": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          LatLng[] points = parseLatLngs(call.argument("points"));
+          String strokeColor = stringParamOfCall(call, "strokeColor");
+          String fillColor = stringParamOfCall(call, "fillColor");
+          mapInstance.map.addPolygon(points, strokeColor, fillColor);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addGeoJsonSourceByUrl": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String sourceId = stringParamOfCall(call, "sourceId");
+          String url = stringParamOfCall(call, "url");
+          URL urlObj;
+          try {
+            urlObj = new URL(url);
+          } catch (MalformedURLException malformedUrlException) {
+            result.error("Check the URL " + malformedUrlException.getMessage(), "", null);
+            break;
+          }
+          GeoJsonOptions options = geoJsonOptionsParamOfCall(call);
+          mapInstance.map.addGeoJsonSourceByUrl(sourceId, urlObj, options);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addGeoJsonSource": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String sourceId = stringParamOfCall(call, "sourceId");
+          String geoJson = stringParamOfCall(call, "geoJson");
+          GeoJsonOptions options = geoJsonOptionsParamOfCall(call);
+          mapInstance.map.addGeoJsonSource(sourceId, geoJson, options);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addCircleLayer": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String layerId = stringParamOfCall(call, "layerId");
+          String sourceId = stringParamOfCall(call, "sourceId");
+          PropertyValue<?>[] propertyValues = circlePropertiesParamOfCall(call);
+          Expression filter = filterExpressionParamOfCall(call);
+          mapInstance.map.addCircleLayer(layerId, sourceId, propertyValues, filter);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addSymbolLayer": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String layerId = stringParamOfCall(call, "layerId");
+          String sourceId = stringParamOfCall(call, "sourceId");
+          PropertyValue<?>[] propertyValues = symbolPropertiesParamOfCall(call);
+          Expression filter = filterExpressionParamOfCall(call);
+          mapInstance.map.addSymbolLayer(layerId, sourceId, propertyValues, filter);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addTextLayer": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String layerId = stringParamOfCall(call, "layerId");
+          String sourceId = stringParamOfCall(call, "sourceId");
+          PropertyValue<?>[] propertyValues = textPropertiesParamOfCall(call);
+          Expression filter = filterExpressionParamOfCall(call);
+          mapInstance.map.addSymbolLayer(layerId, sourceId, propertyValues, filter);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addHeatmapLayer": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String layerId = stringParamOfCall(call, "layerId");
+          String sourceId = stringParamOfCall(call, "sourceId");
+          Integer maxZoom = intParamOfCall(call, "maxZoom");
+          PropertyValue<?>[] propertyValues = heatmapPropertiesParamOfCall(call);
+          Expression filter = filterExpressionParamOfCall(call);
+          mapInstance.map.addHeatmapLayer(layerId, sourceId, maxZoom, propertyValues, filter);
+        }
+        result.success(null);
+        break;
+      }
+
+      case "addImage": {
+        long textureId = textureIdOfCall(call);
+        if (maps.containsKey(textureId)) {
+          MapInstance mapInstance = maps.get(textureId);
+          String imageName = stringParamOfCall(call, "imageName");
+          String base64Image = stringParamOfCall(call, "base64Image");
+          mapInstance.map.addImage(imageName, base64Image);
+        }
+        result.success(null);
+        break;
+      }
+
       case "dispose": {
         long textureId = textureIdOfCall(call);
         if (maps.containsKey(textureId)) {
@@ -452,6 +639,186 @@ public class MapboxPlugin implements MethodCallHandler {
     double easting = call.argument("easting");
     double northing = call.argument("northing");
     return new ProjectedMeters(northing, easting);
+  }
+
+  private GeoJsonOptions geoJsonOptionsParamOfCall(MethodCall call) {
+    Map<String, Object> geoJsonOptionsProperties = call.argument("geoJsonOptions");
+    GeoJsonOptions options = new GeoJsonOptions();
+    for (Map.Entry<String, Object> property : geoJsonOptionsProperties.entrySet()) {
+      if (property.getValue() == null)
+        continue;
+      switch (property.getKey()) {
+        case "enableClustering":
+          options = options.withCluster((boolean)property.getValue());
+          break;
+        case "clusterMaxZoom":
+          options = options.withClusterMaxZoom((Integer)property.getValue());
+          break;
+        case "clusterRadius":
+          options = options.withClusterRadius((Integer)property.getValue());
+          break;
+      }
+    }
+    return options;
+  }
+
+  private Expression filterExpressionParamOfCall(MethodCall call) {
+    Map<String, Object> filterProperties = call.argument("filterProperties");
+    Integer lowerRange = (Integer) filterProperties.get("lowerRange");
+    Integer upperRange = (Integer) filterProperties.get("upperRange");
+    if (lowerRange == null && upperRange == null)
+      return null;
+    Expression pointCount = toNumber(get("point_count"));
+    return upperRange == null
+        ? all(has("point_count"), gte(pointCount, literal(lowerRange)))
+        : all(has("point_count"), gt(pointCount, literal(lowerRange)), lt(pointCount, literal(upperRange)));
+  }
+
+  private PropertyValue<?>[] circlePropertiesParamOfCall(MethodCall call) {
+    Map<String, Object> circleProperties = call.argument("circleProperties");
+    List<PropertyValue<?>> properties = new ArrayList<>();
+    for (Map.Entry<String, Object> property : circleProperties.entrySet()) {
+      if (property.getValue() == null)
+        continue;
+      switch (property.getKey()) {
+        case "color":
+          properties.add(circleColor((String)property.getValue()));
+          break;
+        case "radius":
+          properties.add(circleRadius(((Double)property.getValue()).floatValue()));
+          break;
+        case "strokeColor":
+          properties.add(circleStrokeColor((String)property.getValue()));
+          break;
+        case "strokeWidth":
+          properties.add(circleStrokeWidth(((Double)property.getValue()).floatValue()));
+          break;
+      }
+    }
+    return properties.toArray(new PropertyValue<?>[properties.size()]);
+  }
+
+  private PropertyValue<?>[] symbolPropertiesParamOfCall(MethodCall call) {
+    Map<String, Object> symbolProperties = call.argument("symbolProperties");
+    List<PropertyValue<?>> properties = new ArrayList<>();
+    for (Map.Entry<String, Object> property : symbolProperties.entrySet()) {
+      if (property.getValue() == null)
+        continue;
+      switch (property.getKey()) {
+        case "iconImageName":
+          properties.add(iconImage((String)property.getValue()));
+          break;
+        case "iconSize":
+          properties.add(iconSize(
+              division(
+                  get("mag"),
+                  literal((Number)property.getValue())
+              )
+          ));
+          break;
+        case "iconColor":
+          properties.add(iconColor((String)property.getValue()));
+          break;
+      }
+    }
+    return properties.toArray(new PropertyValue<?>[properties.size()]);
+  }
+
+  private PropertyValue<?>[] textPropertiesParamOfCall(MethodCall call) {
+    Map<String, Object> textProperties = call.argument("textProperties");
+    List<PropertyValue<?>> properties = new ArrayList<>();
+    for (Map.Entry<String, Object> property : textProperties.entrySet()) {
+      if (property.getValue() == null)
+        continue;
+      switch (property.getKey()) {
+        case "textField":
+          if (property.getValue().equals("point_count")) {
+            properties.add(textField(Expression.toString(get("point_count"))));
+          }
+          else {
+            properties.add(textField((String)property.getValue()));
+          }
+          break;
+        case "textSize":
+          properties.add(textSize(((Double)property.getValue()).floatValue()));
+          break;
+        case "textColor":
+          properties.add(textColor((String)property.getValue()));
+          break;
+        case "textIgnorePlacement":
+          properties.add(textIgnorePlacement((Boolean)property.getValue()));
+          break;
+        case "textAllowOverlap":
+          properties.add(textAllowOverlap((Boolean)property.getValue()));
+          break;
+      }
+    }
+    return properties.toArray(new PropertyValue<?>[properties.size()]);
+  }
+
+  private PropertyValue<?>[] heatmapPropertiesParamOfCall(MethodCall call) {
+    Map<String, Object> heatmapProperties = call.argument("heatmapProperties");
+    return new PropertyValue<?>[] {
+        // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
+        // Begin color ramp at 0-stop with a 0-transparancy color
+        // to create a blur-like effect.
+        heatmapColor(
+            interpolate(
+                linear(), heatmapDensity(),
+                literal(0), rgba(33, 102, 172, 0),
+                literal(0.2), rgb(103, 169, 207),
+                literal(0.4), rgb(209, 229, 240),
+                literal(0.6), rgb(253, 219, 199),
+                literal(0.8), rgb(239, 138, 98),
+                literal(1), rgb(178, 24, 43)
+            )
+        ),
+
+        // Increase the heatmap weight based on frequency and property magnitude
+        heatmapWeight(
+            interpolate(
+                linear(), get("mag"),
+                stop(0, 0),
+                stop(6, 1)
+            )
+        ),
+
+        // Increase the heatmap color weight weight by zoom level
+        // heatmap-intensity is a multiplier on top of heatmap-weight
+        heatmapIntensity(
+            interpolate(
+                linear(), zoom(),
+                stop(0, 1),
+                stop(9, 3)
+            )
+        ),
+
+        // Adjust the heatmap radius by zoom level
+        heatmapRadius(
+            interpolate(
+                linear(), zoom(),
+                stop(0, 2),
+                stop(9, 20)
+            )
+        ),
+
+        // Transition from heatmap to circle layer by zoom level
+        heatmapOpacity(
+            interpolate(
+                linear(), zoom(),
+                stop(7, 1),
+                stop(9, 0)
+            )
+        )
+    };
+  }
+
+  private LatLng[] parseLatLngs(Map<String, Object>[] jsonPoints) {
+    ArrayList<LatLng> latLngPoints = new ArrayList<>();
+    for (Map<String, Object> jsonPoint : jsonPoints) {
+      latLngPoints.add(parseLatLng(jsonPoint));
+    }
+    return (LatLng[])latLngPoints.toArray();
   }
 
   private MapboxMapOptions parseOptions(Map<String, Object> options) {

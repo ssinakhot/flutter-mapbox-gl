@@ -420,6 +420,210 @@ class MapboxOverlayController {
     }
   }
 
+  Future<void> addMarker(String title, String snippet, LatLng latLng) async {
+   try {
+      await _channel.invokeMethod(
+        'addMarker',
+        <String, Object>{
+          'textureId': _textureId,
+          'title': title,
+          'snippet': snippet,
+          'lat': latLng.lat,
+          'lng': latLng.lng,
+        },
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addPolyline(List<LatLng> points, double width, String color) async {
+    try {
+      await _channel.invokeMethod(
+        'addPolyline',
+        <String, Object> {
+          'textureId': _textureId,
+          'points': points,
+          'width': width,
+          'color': color
+        },
+      );
+    } on PlatformException catch(e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addPolygon(List<LatLng> points, String strokeColor, String fillColor) async {
+    try {
+      await _channel.invokeMethod(
+        'addPolygon',
+        <String, Object> {
+          'textureId': _textureId,
+          'points': points,
+          'strokeColor': strokeColor,
+          'fillColor': fillColor
+        }
+      );
+    } on PlatformException catch(e) {
+      return new Future.error(e);
+    }
+  }
+
+
+  Future<void> addGeoJsonSourceByUrl({ String sourceId, String url,
+      bool enableClustering, int clusterMaxZoom, int clusterRadius }) async {
+    try {
+      await _channel.invokeMethod(
+        'addGeoJsonSourceByUrl',
+        <String, Object> {
+          'textureId': _textureId,
+          'sourceId': sourceId,
+          'url': url,
+          'geoJsonOptions': {
+            'enableClustering': enableClustering,
+            'clusterMaxZoom': clusterMaxZoom,
+            'clusterRadius': clusterRadius
+          }
+        }
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addGeoJsonSource({ String sourceId, String geoJson,
+      bool enableClustering, int clusterMaxZoom, int clusterRadius }) async {
+    try {
+      await _channel.invokeMethod(
+        'addGeoJsonSource',
+        <String, Object>{
+          'textureId': _textureId,
+          'sourceId': sourceId,
+          'geoJson': geoJson,
+          'geoJsonOptions': {
+            'enableClustering': enableClustering,
+            'clusterMaxZoom': clusterMaxZoom,
+            'clusterRadius': clusterRadius
+          }
+        },
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addCircleLayer({String sourceId, String layerId, String color,
+      double radius, double strokeWidth, String strokeColor,
+      int filterLowerRange, int filterUpperRange}) async {
+    try {
+      await _channel.invokeMethod(
+        'addCircleLayer',
+        <String, Object>{
+          'textureId': _textureId,
+          'sourceId': sourceId,
+          'layerId': layerId,
+          'circleProperties': <String, Object> {
+            'color': color,
+            'radius': radius,
+            'strokeWidth': strokeWidth,
+            'strokeColor': strokeColor,
+          },
+          'filterProperties': <String, Object> {
+            'lowerRange': filterLowerRange,
+            'upperRange': filterUpperRange,
+          }
+        },
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addSymbolLayer({String sourceId, String layerId,
+      String iconImageName, double iconSize, String iconColor,
+      int filterLowerRange, int filterUpperRange}) async {
+    try {
+      await _channel.invokeMethod(
+        'addSymbolLayer',
+        <String, Object>{
+          'textureId': _textureId,
+          'sourceId': sourceId,
+          'layerId': layerId,
+          'symbolProperties': <String, Object> {
+            'iconImageName': iconImageName,
+            'iconSize': iconSize,
+            'iconColor': iconColor,
+          },
+          'filterProperties': <String, Object> {
+            'lowerRange': filterLowerRange,
+            'upperRange': filterUpperRange,
+          }
+        },
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addTextLayer({String sourceId, String layerId, String textField,
+      double textSize, String textColor, bool textIgnorePlacement,
+      bool textAllowOverlap, int filterLowerRange, int filterUpperRange}) async {
+    try {
+      await _channel.invokeMethod(
+        'addTextLayer',
+        <String, Object>{
+          'textureId': _textureId,
+          'sourceId': sourceId,
+          'layerId': layerId,
+          'textProperties': <String, Object> {
+            'textField': textField,
+            'textSize': textSize,
+            'textColor': textColor,
+            'textIgnorePlacement': textIgnorePlacement,
+            'textAllowOverlap': textAllowOverlap,
+          },
+          'filterProperties': <String, Object> {
+            'lowerRange': filterLowerRange,
+            'upperRange': filterUpperRange,
+          }
+        },
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addHeatmap({String sourceId, String layerId, int maxZoom}) async {
+    try {
+      await _channel.invokeMethod(
+        'addTextLayer',
+        <String, Object>{
+          'textureId': _textureId,
+          'sourceId': sourceId,
+          'layerId': layerId,
+          'maxZoom': maxZoom
+        },
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
+  Future<void> addImage({String imageName, String base64Image}) async {
+    try {
+      await _channel.invokeMethod(
+        'addImage',
+        <String, Object> {
+          'textureId': _textureId,
+          'imageName': imageName,
+          'base64Image': base64Image
+        }
+      );
+    } on PlatformException catch (e) {
+      return new Future.error(e);
+    }
+  }
+
   Future<Null> dispose(int _textureId) async {
     try {
       await _channel.invokeMethod(
